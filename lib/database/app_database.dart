@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -12,12 +13,25 @@ class AppDatabase {
   static const _fileName = 'noir.db';
   static const _version = 1; // naikkan saat skema berubah, lalu isi onUpgrade
 
+  /// sqflite hanya punya implementasi Android, iOS (dan macOS). Di Windows, Linux,
+  /// dan Web, openDatabase() gagal dengan "databaseFactory not initialized".
+  static bool get isSupported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   Future<Database>? _opening;
 
   /// Database dibuka sekali (lazy). Panggilan berikutnya memakai Future yang sama.
   Future<Database> get database => _opening ??= _open();
 
   Future<Database> _open() async {
+    if (!isSupported) {
+      throw UnsupportedError(
+        'SQLite lokal hanya didukung di Android dan iOS. '
+        'Jalankan aplikasi di emulator atau HP.',
+      );
+    }
     final path = p.join(await getDatabasesPath(), _fileName);
     return openDatabase(
       path,
@@ -59,10 +73,26 @@ class AppDatabase {
     final db = await database;
     await db.transaction((txn) async {
       await txn.delete('cart_items', where: 'user_id = ?', whereArgs: [userId]);
-      await txn.delete('checkout_draft', where: 'user_id = ?', whereArgs: [userId]);
-      await txn.delete('notifications_local', where: 'user_id = ?', whereArgs: [userId]);
-      await txn.delete('payment_reminders', where: 'user_id = ?', whereArgs: [userId]);
-      await txn.delete('meta', where: 'key = ?', whereArgs: ['notif_last_id:$userId']);
+      await txn.delete(
+        'checkout_draft',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+      await txn.delete(
+        'notifications_local',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+      await txn.delete(
+        'payment_reminders',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+      await txn.delete(
+        'meta',
+        where: 'key = ?',
+        whereArgs: ['notif_last_id:$userId'],
+      );
     });
   }
 

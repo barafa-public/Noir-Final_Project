@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
+import 'pages/auth/login_page.dart';
+import 'theme/app_theme.dart';
+
 class NoirApp extends StatelessWidget {
   const NoirApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Noir',
-      // TODO: ganti dengan penentuan halaman awal (login / shell) berdasarkan sesi
-      home: Scaffold(body: Center(child: Text('Noir'))),
+      theme: AppTheme.dark,
+      // TODO PBI-01.3/02: ganti dengan SplashPage (cek token, refresh, biometrik).
+      home: const LoginPage(),
     );
   }
 }
@@ -17,6 +21,7 @@ class NoirApp extends StatelessWidget {
 /// Ditampilkan jika .env kosong/salah atau SQLite gagal dibuka.
 class StartupErrorApp extends StatelessWidget {
   const StartupErrorApp({super.key, required this.message});
+
   final String message;
 
   @override
