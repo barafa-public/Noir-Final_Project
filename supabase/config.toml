@@ -1,0 +1,47 @@
+# Minimal. Jika `supabase init` sudah membuat config.toml, GABUNGKAN bagian [functions.*] saja.
+project_id = "noir"
+
+# Auth dibuat sendiri (JWT buatan sendiri), jadi gateway Supabase tidak boleh memverifikasi JWT.
+# Otorisasi dilakukan di _shared/auth_guard.ts.
+
+[functions.auth]
+verify_jwt = false
+
+[functions.users]
+verify_jwt = false
+
+[functions.products]
+verify_jwt = false
+
+[functions.master]
+verify_jwt = false
+
+[functions.orders]
+verify_jwt = false
+
+[functions.procurements]
+verify_jwt = false
+
+[functions.reports]
+verify_jwt = false
+
+[functions.ai]
+verify_jwt = false
+
+[functions.notifications]
+verify_jwt = false
+
+[functions.chain]
+verify_jwt = false
+
+[functions.kurs]
+verify_jwt = false
+
+[functions.uploads]
+verify_jwt = false
+
+[functions.feedback]
+verify_jwt = false
+
+[functions.game]
+verify_jwt = false
