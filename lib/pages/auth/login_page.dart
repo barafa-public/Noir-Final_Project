@@ -12,7 +12,10 @@ import '../shell/main_shell_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  /// [notice]: pesan awal di atas tombol, mis. "Sesi berakhir. Silakan masuk lagi."
+  const LoginPage({super.key, this.notice});
+
+  final String? notice;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -25,6 +28,12 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _error = widget.notice;
+  }
 
   @override
   void dispose() {
