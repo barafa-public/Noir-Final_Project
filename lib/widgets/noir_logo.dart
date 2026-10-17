@@ -16,17 +16,19 @@ class NoirLogo extends StatelessWidget {
       width: width,
       fit: BoxFit.contain,
       semanticLabel: 'Logo Noir',
-      // Jika asset belum dipasang/didaftarkan, tampilkan teks agar layar tidak rusak.
+      // Jika asset belum dipasang/didaftarkan, tampilkan teks yang menyesuaikan lebar.
       errorBuilder: (context, error, stackTrace) => SizedBox(
         width: width,
-        child: const Text(
-          'NOIR',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: AppColors.yellow,
-            fontSize: 40,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 4,
+        child: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'NOIR',
+            style: TextStyle(
+              color: AppColors.yellow,
+              fontSize: 40,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 4,
+            ),
           ),
         ),
       ),

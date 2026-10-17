@@ -51,6 +51,27 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(foregroundColor: AppColors.yellow),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.black,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        height: 68,
+        indicatorColor: AppColors.yellow,
+        iconTheme: WidgetStateProperty.resolveWith<IconThemeData?>((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? AppColors.black : AppColors.textSecondary,
+          );
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? AppColors.yellow : AppColors.textSecondary,
+          );
+        }),
+      ),
       snackBarTheme: const SnackBarThemeData(
         backgroundColor: AppColors.surface,
         contentTextStyle: TextStyle(color: AppColors.white),

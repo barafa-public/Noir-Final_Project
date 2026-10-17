@@ -3,61 +3,92 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/confirm_dialog.dart';
 import '../auth/login_page.dart';
+import '../feedback/feedback_page.dart';
+import '../home/home_page.dart';
+import '../profile/profile_page.dart';
 
-/// SEMENTARA: hanya bukti bahwa login berhasil dan sarana uji ulang login.
-/// Akan digantikan bottom navigation 4 tab (PBI-04.1) dan dialog logout (PBI-04.4).
-class MainShellPage extends StatelessWidget {
+/// Kerangka setelah login: bottom navigation 4 tab (Beranda, Profil, Saran & Kesan,
+/// Logout). Logout bukan halaman: menekannya membuka dialog konfirmasi.
+class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key, required this.user});
 
   final UserModel user;
 
-  Future<void> _logout(BuildContext context) async {
+  @override
+  State<MainShellPage> createState() => _MainShellPageState();
+}
+
+class _MainShellPageState extends State<MainShellPage> {
+  static const _logoutIndex = 3;
+
+  int _index = 0;
+
+  Future<void> _confirmLogout() async {
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Keluar dari Noir?',
+      message: 'Anda harus masuk lagi untuk mengakses akun ini.',
+      confirmLabel: 'Keluar',
+    );
+    if (!ok || !mounted) return;
+
     await AuthService.instance.logout();
-    if (!context.mounted) return;
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const LoginPage()),
       (route) => false,
     );
   }
 
+  void _onSelected(int i) {
+    if (i == _logoutIndex) {
+      _confirmLogout(); // tab tidak berpindah
+      return;
+    }
+    setState(() => _index = i);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.yellow,
-                  size: 72,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Login berhasil',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${user.username} (${user.role})',
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 28),
-                OutlinedButton(
-                  onPressed: () => _logout(context),
-                  child: const Text('Keluar (sementara)'),
-                ),
-              ],
+      body: IndexedStack(
+        index: _index,
+        children: [
+          HomePage(user: widget.user),
+          ProfilePage(user: widget.user),
+          const FeedbackPage(),
+        ],
+      ),
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: _onSelected,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Beranda',
             ),
-          ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: 'Profil',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.rate_review_outlined),
+              selectedIcon: Icon(Icons.rate_review_rounded),
+              label: 'Saran & Kesan',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.logout_rounded),
+              label: 'Logout',
+            ),
+          ],
         ),
       ),
     );
