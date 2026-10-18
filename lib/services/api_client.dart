@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../config/app_config.dart';
+import 'api_exception.dart';
 import 'token_storage.dart';
 
 enum _RefreshResult {
@@ -20,24 +21,26 @@ enum _RefreshResult {
 /// sebenarnya = JWT buatan sendiri yang diverifikasi di server.
 class ApiClient {
   ApiClient({required TokenStorage tokens})
-      : _tokens = tokens,
-        dio = _newDio(),
-        _plain = _newDio() {
+    : _tokens = tokens,
+      dio = _newDio(),
+      _plain = _newDio() {
     dio.interceptors.add(
       InterceptorsWrapper(onRequest: _onRequest, onError: _onError),
     );
   }
 
   static Dio _newDio() {
-    return Dio(BaseOptions(
-      baseUrl: AppConfig.functionsUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 20),
-      headers: {
-        'apikey': AppConfig.publishableKey,
-        'Content-Type': 'application/json',
-      },
-    ));
+    return Dio(
+      BaseOptions(
+        baseUrl: AppConfig.functionsUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 20),
+        headers: {
+          'apikey': AppConfig.publishableKey,
+          'Content-Type': 'application/json',
+        },
+      ),
+    );
   }
 
   final TokenStorage _tokens;
@@ -59,6 +62,19 @@ class ApiClient {
   /// -> POST <BACKEND_URL>/functions/v1/auth/login
   Future<Response<dynamic>> post(String function, Map<String, dynamic> body) =>
       dio.post('/$function', data: body);
+
+  /// Seperti [post], tetapi kegagalannya sudah berupa [ApiException] dengan pesan
+  /// yang aman ditampilkan. Dipakai oleh semua service selain AuthService.
+  Future<Response<dynamic>> send(
+    String function, [
+    Map<String, dynamic> body = const {},
+  ]) async {
+    try {
+      return await post(function, body);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
 
   // ---------------------------------------------------------------- interceptor
 

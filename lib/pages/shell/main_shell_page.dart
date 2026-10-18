@@ -23,7 +23,19 @@ class MainShellPage extends StatefulWidget {
 class _MainShellPageState extends State<MainShellPage> {
   static const _logoutIndex = 3;
 
+  late UserModel _user;
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _user = widget.user;
+  }
+
+  /// Dipanggil Profil saat data berubah (nama/foto), agar Beranda ikut diperbarui.
+  void _onUserChanged(UserModel user) {
+    if (mounted) setState(() => _user = user);
+  }
 
   Future<void> _confirmLogout() async {
     final ok = await showConfirmDialog(
@@ -56,8 +68,8 @@ class _MainShellPageState extends State<MainShellPage> {
       body: IndexedStack(
         index: _index,
         children: [
-          HomePage(user: widget.user),
-          ProfilePage(user: widget.user),
+          HomePage(user: _user),
+          ProfilePage(user: _user, onUserChanged: _onUserChanged),
           const FeedbackPage(),
         ],
       ),
