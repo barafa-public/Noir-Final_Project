@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
 import '../../models/user_model.dart';
-import '../../widgets/empty_view.dart';
+import '../../widgets/menu_card.dart';
+import 'biometric_settings_page.dart';
 
-/// Placeholder tab Profil (foto, nama, role, pengaturan biometrik menyusul).
+/// Sementara hanya memuat pengaturan keamanan. Foto, nama, dan data akun
+/// menyusul di Batch C (PBI-04.2).
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key, required this.user});
 
@@ -12,28 +14,42 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Text(
-              'Profil',
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
+          const Text(
+            'Profil',
+            style: TextStyle(
+              color: AppColors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Keamanan',
+            style: TextStyle(
+              color: AppColors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          MenuCard(
+            title: 'Login Biometrik',
+            icon: Icons.fingerprint_rounded,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => BiometricSettingsPage(user: user),
               ),
             ),
           ),
-          Expanded(
-            child: EmptyView(
-              icon: Icons.person_outline_rounded,
-              title: 'Segera hadir',
-              message:
-                  'Foto, data akun, dan pengaturan biometrik akan ada di sini.',
-            ),
+          const SizedBox(height: 32),
+          const Text(
+            'Foto, nama, dan data akun akan tersedia di sini.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textSecondary),
           ),
         ],
       ),

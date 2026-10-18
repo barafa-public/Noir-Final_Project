@@ -9,8 +9,11 @@ import '../shell/main_shell_page.dart';
 import 'login_page.dart';
 
 /// Halaman pertama: memulihkan sesi dari token tersimpan.
-/// Ada sesi valid -> Beranda. Tidak ada/ditolak -> Login.
-/// Jaringan bermasalah -> pesan + Coba Lagi (sesi TIDAK dihapus).
+/// - Kunci biometrik aktif -> Login dengan prompt biometrik otomatis (aplikasi "terkunci");
+/// jika biometrik perangkat tak tersedia, Login meminta password (tidak terbuka otomatis)
+/// - Ada sesi valid        -> Beranda
+/// - Tidak ada/ditolak     -> Login
+/// - Jaringan bermasalah   -> pesan + Coba Lagi (sesi TIDAK dihapus)
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -29,6 +32,16 @@ class _SplashPageState extends State<SplashPage> {
 
   Future<void> _boot() async {
     try {
+      if (await AuthService.instance.isBiometricLockActive()) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => const LoginPage(autoBiometric: true),
+          ),
+        );
+        return;
+      }
+
       final user = await AuthService.instance.restoreSession();
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -39,9 +52,8 @@ class _SplashPageState extends State<SplashPage> {
       );
     } on ApiException {
       if (mounted) {
-        setState(
-          () => _error = 'Tidak dapat memuat sesi. Periksa koneksi internet lalu coba lagi.',
-        );
+        setState(() => _error =
+            'Tidak dapat memuat sesi. Periksa koneksi internet lalu coba lagi.');
       }
     } catch (_) {
       if (mounted) setState(() => _error = 'Terjadi kesalahan tak terduga.');

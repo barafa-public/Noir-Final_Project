@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
+import '../../models/user_model.dart';
 import '../../services/api_exception.dart';
 import '../../services/auth_service.dart';
 import '../../utils/validators.dart';
@@ -13,26 +14,34 @@ import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   /// [notice]: pesan awal di atas tombol, mis. "Sesi berakhir. Silakan masuk lagi."
-  const LoginPage({super.key, this.notice});
+  /// [autoBiometric]: langsung menampilkan prompt biometrik saat halaman dibuka.
+  const LoginPage({super.key, this.notice, this.autoBiometric = false});
 
   final String? notice;
+  final bool autoBiometric;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
+  static const _maxBiometricFailures = 3;
+
   final _formKey = GlobalKey<FormState>();
   final _username = TextEditingController();
   final _password = TextEditingController();
 
   bool _loading = false;
+  bool _biometricReady = false;
+  bool _biometricBusy = false;
+  int _biometricFailures = 0;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _error = widget.notice;
+    _checkBiometric();
   }
 
   @override
@@ -40,6 +49,27 @@ class _LoginPageState extends State<LoginPage> {
     _username.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkBiometric() async {
+    final locked = await AuthService.instance.isBiometricLockActive();
+    final ready = locked && await AuthService.instance.isBiometricLoginReady();
+    if (!mounted) return;
+    setState(() {
+      _biometricReady = ready;
+      // Kunci aktif tetapi biometrik perangkat tidak tersedia: wajib password.
+      if (locked && !ready && _error == null) {
+        _error = 'Biometrik tidak tersedia di perangkat ini. Silakan masuk dengan password.';
+      }
+    });
+    if (ready && widget.autoBiometric) _biometricLogin();
+  }
+
+  void _goToShell(UserModel user) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => MainShellPage(user: user)),
+      (route) => false,
+    );
   }
 
   Future<void> _submit() async {
@@ -57,17 +87,55 @@ class _LoginPageState extends State<LoginPage> {
         password: _password.text,
       );
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => MainShellPage(user: user)),
-        (route) => false,
-      );
+      _goToShell(user);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted)
-        setState(() => _error = 'Terjadi kesalahan tak terduga. Coba lagi.');
+      if (mounted) setState(() => _error = 'Terjadi kesalahan tak terduga. Coba lagi.');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _biometricLogin() async {
+    if (_loading || _biometricBusy) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _biometricBusy = true;
+      _error = null;
+    });
+
+    try {
+      final result = await AuthService.instance.loginWithBiometric();
+      if (!mounted) return;
+
+      switch (result.status) {
+        case BiometricLoginStatus.success:
+          _goToShell(result.user!);
+        case BiometricLoginStatus.cancelled:
+          _biometricFailures++;
+          if (_biometricFailures >= _maxBiometricFailures) {
+            // Gagal berulang: sembunyikan tombol, arahkan ke password.
+            setState(() {
+              _biometricReady = false;
+              _error = 'Biometrik gagal beberapa kali. Silakan masuk dengan password.';
+            });
+          } else {
+            setState(() => _error =
+                'Biometrik gagal atau dibatalkan. Coba lagi atau masuk dengan password.');
+          }
+        case BiometricLoginStatus.sessionInvalid:
+          setState(() {
+            _biometricReady = false;
+            _error = 'Sesi biometrik berakhir. Silakan masuk dengan password.';
+          });
+      }
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Terjadi kesalahan tak terduga. Coba lagi.');
+    } finally {
+      if (mounted) setState(() => _biometricBusy = false);
     }
   }
 
@@ -85,6 +153,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final busy = _loading || _biometricBusy;
+
     return AuthScaffold(
       child: Form(
         key: _formKey,
@@ -130,9 +200,35 @@ class _LoginPageState extends State<LoginPage> {
               AuthErrorBox(message: _error!),
             ],
             const SizedBox(height: 24),
-            AppButton(label: 'Masuk', loading: _loading, onPressed: _submit),
-            // TODO PBI-02.2: tombol "Masuk dengan biometrik" di sini (hanya jika
-            // sudah diaktifkan di Profil dan perangkat mendukung).
+            AppButton(
+              label: 'Masuk',
+              loading: _loading,
+              onPressed: busy ? null : _submit,
+            ),
+            if (_biometricReady) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: busy ? null : _biometricLogin,
+                icon: _biometricBusy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.yellow,
+                        ),
+                      )
+                    : const Icon(Icons.fingerprint_rounded),
+                label: const Text('Masuk dengan Biometrik'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(54),
+                  foregroundColor: AppColors.yellow,
+                  side: const BorderSide(color: AppColors.yellow),
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             Wrap(
               alignment: WrapAlignment.center,
@@ -143,7 +239,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
                 TextButton(
-                  onPressed: _loading ? null : _openRegister,
+                  onPressed: busy ? null : _openRegister,
                   child: const Text(
                     'Daftar Sekarang',
                     style: TextStyle(fontWeight: FontWeight.w700),

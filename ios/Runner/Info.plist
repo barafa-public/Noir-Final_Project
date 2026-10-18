@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Noir memakai Face ID agar Anda dapat masuk dengan cepat dan aman.</string>
 </dict>
 </plist>

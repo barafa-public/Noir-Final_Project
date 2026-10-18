@@ -5,7 +5,23 @@ import 'package:dio/dio.dart';
 import '../models/user_model.dart';
 import 'api_client.dart';
 import 'api_exception.dart';
+import 'biometric_service.dart';
 import 'token_storage.dart';
+
+enum BiometricEnableResult { enabled, unavailable, cancelled }
+
+enum BiometricLoginStatus {
+  success,
+  cancelled, // gagal/dibatalkan: tawarkan coba lagi atau password
+  sessionInvalid, // tidak ada sesi/penanda tidak cocok: wajib password
+}
+
+class BiometricLoginResult {
+  const BiometricLoginResult(this.status, [this.user]);
+
+  final BiometricLoginStatus status;
+  final UserModel? user;
+}
 
 /// Kontrak Edge Function `auth`:
 ///
@@ -27,6 +43,7 @@ class AuthService {
 
   final TokenStorage _tokens;
   final ApiClient _api;
+  final BiometricService _biometrics = BiometricService();
 
   /// Klien HTTP bersama (sudah punya refresh token otomatis).
   /// Semua service lain WAJIB memakai ini, bukan membuat ApiClient sendiri.
@@ -57,7 +74,14 @@ class AuthService {
       'username': username,
       'password': password,
     });
-    return _saveSession(res);
+    final user = await _saveSession(res);
+
+    // Penanda biometrik milik akun lain tidak boleh menempel ke akun ini.
+    final biometricUser = await _tokens.readBiometricUser();
+    if (biometricUser != null && biometricUser != user.id) {
+      await _tokens.clearBiometric();
+    }
+    return user;
   }
 
   /// Dipakai saat aplikasi dibuka: memulihkan sesi dari refresh token tersimpan.
@@ -82,13 +106,80 @@ class AuthService {
     }
   }
 
-  /// Hapus token lokal lebih dulu (selalu berhasil), pencabutan di server
-  /// dilakukan best-effort tanpa menahan UI.
+  /// Hapus token lokal lebih dulu (selalu berhasil; ikut mematikan biometrik),
+  /// pencabutan di server dilakukan best-effort tanpa menahan UI.
   Future<void> logout() async {
     final refresh = await _tokens.readRefresh();
     await _tokens.clear();
     if (refresh != null) unawaited(_revokeRemote(refresh));
   }
+
+  // ------------------------------------------------------------------ biometrik
+
+  /// "Kunci biometrik" aktif: pengguna mengaktifkannya di perangkat ini dan masih
+  /// ada sesi tersimpan. Selama aktif, aplikasi TIDAK boleh terbuka otomatis tanpa
+  /// verifikasi, walaupun biometrik perangkat sedang tidak tersedia (mis. sidik jari
+  /// dihapus dari pengaturan HP). Dalam kasus itu pengguna wajib masuk dengan password.
+  Future<bool> isBiometricLockActive() async {
+    if (await _tokens.readBiometricUser() == null) return false;
+    final refresh = await _tokens.readRefresh();
+    return refresh != null && refresh.isNotEmpty;
+  }
+
+  /// Tombol/prompt biometrik hanya ditawarkan jika kunci aktif DAN perangkat
+  /// mendukung biometrik yang sudah terdaftar.
+  Future<bool> isBiometricLoginReady() async {
+    if (!await isBiometricLockActive()) return false;
+    return await _biometrics.checkSupport() == BiometricSupport.supported;
+  }
+
+  Future<bool> isBiometricEnabledFor(UserModel user) async {
+    return await _tokens.readBiometricUser() == user.id;
+  }
+
+  /// Mengaktifkan biometrik: pengguna harus lolos verifikasi sekali lebih dulu.
+  Future<BiometricEnableResult> enableBiometric(UserModel user) async {
+    if (await _biometrics.checkSupport() != BiometricSupport.supported) {
+      return BiometricEnableResult.unavailable;
+    }
+    final ok = await _biometrics.authenticate(
+      'Verifikasi untuk mengaktifkan login biometrik',
+    );
+    if (!ok) return BiometricEnableResult.cancelled;
+
+    await _tokens.setBiometricUser(user.id);
+    return BiometricEnableResult.enabled;
+  }
+
+  Future<void> disableBiometric() => _tokens.clearBiometric();
+
+  /// Biometrik "membuka" sesi yang sudah tersimpan: setelah lolos verifikasi,
+  /// refresh token dipakai untuk memulihkan sesi (dan mengambil data terbaru).
+  /// Melempar ApiException jika jaringan/server bermasalah.
+  Future<BiometricLoginResult> loginWithBiometric() async {
+    final expectedUser = await _tokens.readBiometricUser();
+    if (expectedUser == null) {
+      return const BiometricLoginResult(BiometricLoginStatus.sessionInvalid);
+    }
+
+    final ok = await _biometrics.authenticate('Masuk ke Noir dengan biometrik');
+    if (!ok) {
+      return const BiometricLoginResult(BiometricLoginStatus.cancelled);
+    }
+
+    final user = await restoreSession();
+    if (user == null) {
+      return const BiometricLoginResult(BiometricLoginStatus.sessionInvalid);
+    }
+    if (user.id != expectedUser) {
+      // Sesi milik akun lain: jangan dipakai.
+      await _tokens.clear();
+      return const BiometricLoginResult(BiometricLoginStatus.sessionInvalid);
+    }
+    return BiometricLoginResult(BiometricLoginStatus.success, user);
+  }
+
+  // ------------------------------------------------------------------- internal
 
   Future<UserModel> _saveSession(Response<dynamic> res) async {
     final data = res.data;
