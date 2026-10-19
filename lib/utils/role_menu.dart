@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import '../pages/users/user_management_page.dart';
+
+// Fungsi tingkat atas agar bisa dipakai di daftar menu yang `const`.
+Widget _staffAccountsPage(BuildContext context) => const UserManagementPage();
 
 /// Satu menu di Beranda. Isi [builder] dengan halaman tujuan saat halamannya sudah
 /// dibuat; selama null, menu menampilkan "belum tersedia".
@@ -140,7 +144,11 @@ class RoleMenu {
       items: [
         MenuEntry(title: 'Produk', icon: Icons.category_outlined),
         MenuEntry(title: 'Supplier & Gudang', icon: Icons.business_outlined),
-        MenuEntry(title: 'Akun Staff', icon: Icons.manage_accounts_outlined),
+        MenuEntry(
+          title: 'Akun Staff',
+          icon: Icons.manage_accounts_outlined,
+          builder: _staffAccountsPage,
+        ),
       ],
     ),
     MenuGroup(
